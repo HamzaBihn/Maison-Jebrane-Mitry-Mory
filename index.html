@@ -42,6 +42,7 @@
         .val-prod { color: #F9E586; font-weight: bold; font-size: 1.1em; }
         #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
         .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: auto; opacity: 0.5; }
+        .delete-icon:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -98,7 +99,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // CONFIGURATION SPECIFIQUE MITRY-MORY
   const firebaseConfig = {
     apiKey: "AIzaSyAbrOwjPc1eOpMF8I8A-LLhiPO8toiu3oQ",
     authDomain: "maison-jebrane-mitry-mory.firebaseapp.com",
@@ -131,11 +131,13 @@
     const parent = document.getElementById('listeCategories');
     const selectCat = document.getElementById('selectCat');
     const stockProdSelect = document.getElementById('stockProdSelect');
+    
     parent.innerHTML = ""; selectCat.innerHTML = ""; stockProdSelect.innerHTML = "";
 
     Object.keys(containers).forEach(catID => {
         const catName = containers[catID].nom;
         selectCat.add(new Option(catName, catID));
+        
         const section = document.createElement('div');
         section.className = "categorie-container";
         section.innerHTML = `
@@ -143,11 +145,12 @@
             <div class="table-container">
                 <table>
                     <thead><tr><th>Produits</th>${jours.map(j => `<th>${j}</th>`).join('')}</tr></thead>
-                    <tbody id="body-${catID}"></tbody>
+                    <tbody id="body-${catID}" data-catid="${catID}"></tbody>
                 </table>
             </div>
         `;
         parent.appendChild(section);
+
         const tbody = document.getElementById(`body-${catID}`);
         const produits = containers[catID].produits || {};
         const sortedKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
@@ -155,7 +158,10 @@
         sortedKeys.forEach(pID => {
             const pName = produits[pID].nom;
             stockProdSelect.add(new Option(`${catName} - ${pName}`, `${catID}/${pID}/${pName}`));
+            
             const tr = document.createElement('tr');
+            tr.dataset.id = pID; // Crucial pour le drag and drop
+            
             let htmlProd = `<td class="prod-name"><span class="handle">☰</span> ${pName} <span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')">✕</span></td>`;
             jours.forEach(j => {
                 const vals = (production[pID] && production[pID][j]) ? production[pID][j] : { obj: 0, stock: 0 };
@@ -167,6 +173,19 @@
                 </div></td>`;
             });
             tr.innerHTML = htmlProd; tbody.appendChild(tr);
+        });
+
+        // Activation du Drag and Drop pour cette catégorie
+        new Sortable(tbody, {
+            handle: '.handle',
+            animation: 150,
+            onEnd: function() {
+                const rows = tbody.querySelectorAll('tr');
+                rows.forEach((row, index) => {
+                    const pID = row.dataset.id;
+                    update(ref(db, `categories/${catID}/produits/${pID}`), { ordre: index });
+                });
+            }
         });
     });
   }
