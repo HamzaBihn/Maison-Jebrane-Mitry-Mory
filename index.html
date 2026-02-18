@@ -14,7 +14,6 @@
         .logo { height: 50px; }
         h2 { color: #D4AF37; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
         
-        /* Panneau Admin */
         .admin-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .box { background: #262626; padding: 15px; border-radius: 12px; border: 1px solid #444; }
         h3 { color: #D4AF37; font-size: 0.8em; text-transform: uppercase; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 10px; }
@@ -27,7 +26,6 @@
         .btn-outline { background: transparent; border: 1px solid #D4AF37; color: #D4AF37; }
         .btn-danger { background: #721c24; color: #f8d7da; border: 1px solid #f5c6cb; }
         
-        /* Catégories et Tableaux */
         .categorie-container { margin-bottom: 30px; border: 1px solid #444; border-radius: 12px; overflow: hidden; }
         .cat-title { background: #D4AF37; color: #1a1a1a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; cursor: grab; }
         .table-container { overflow: auto; max-height: 65vh; background: #262626; }
@@ -47,9 +45,7 @@
         .val-stock { color: #D4AF37; font-weight: bold; font-size: 1.1em; }
         .val-prod { color: #F9E586; font-weight: bold; font-size: 1.2em; }
         
-        /* Zoom */
         body.zoom-large { --cell-padding: 12px; --font-size-base: 1.1em; }
-
         #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
         .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: 10px; font-weight: bold; }
         .hidden-col { display: none; }
@@ -129,7 +125,7 @@
     <div id="listeCategories"></div>
     
     <div style="margin-top: 50px; padding: 20px; text-align: center;">
-        <button class="btn btn-danger" onclick="resetTotal()">⚠️ RÉINITIALISATION COMPLÈTE DU SYSTÈME</button>
+        <button class="btn btn-danger" onclick="resetTotal()">⚠️ RÉINITIALISATION COMPLÈTE MITRY</button>
     </div>
 </div>
 
@@ -137,16 +133,16 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // CONFIGURATION FIREBASE MITRY-MORY
+  // CONFIGURATION FOURNIE POUR MITRY-MORY
   const firebaseConfig = {
-    apiKey: "AIzaSyAbrOwjPc1eOpMF8I8A-LLhiPO8toiu3oQ",
-    authDomain: "maison-jebrane.firebaseapp.com",
-    databaseURL: "https://maison-jebrane-mitry-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "maison-jebrane",
-    storageBucket: "maison-jebrane.firebasestorage.app",
-    messagingSenderId: "541926034379",
-    appId: "1:541926034379:web:f22192e8e40e343a9f044e",
-    measurementId: "G-JQ6XFRENN1"
+    apiKey: "AIzaSyBrU8HKWw5ysqQB5jEKD27SHAeHAaJ4HZE",
+    authDomain: "maison-jebrane-mitry-mory.firebaseapp.com",
+    databaseURL: "https://maison-jebrane-mitry-mory-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "maison-jebrane-mitry-mory",
+    storageBucket: "maison-jebrane-mitry-mory.firebasestorage.app",
+    messagingSenderId: "412946259092",
+    appId: "1:412946259092:web:efb72fc6a964ff7f202881",
+    measurementId: "G-QH80RW0YQ1"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -162,11 +158,9 @@
   };
   document.addEventListener('click', () => { if(!wakeLock) requestWakeLock(); }, { once: true });
 
-  // Zoom
   window.changeZoom = (l) => { document.body.className = `zoom-${l}`; localStorage.setItem('mj-zoom-mitry', l); };
   if(localStorage.getItem('mj-zoom-mitry')) changeZoom(localStorage.getItem('mj-zoom-mitry'));
 
-  // Sync Firebase
   onValue(ref(db, '/'), (snapshot) => {
     globalData = snapshot.val() || {};
     document.getElementById('status').innerText = "● EN LIGNE";
@@ -210,16 +204,8 @@
         headerHtml += `</tr></thead>`;
 
         section.innerHTML = `
-            <div class="cat-title">
-                <span>☰ ${cat.nom}</span>
-                <span class="delete-icon" onclick="supprimerCat('${catID}')">✕</span>
-            </div>
-            <div class="table-container">
-                <table>
-                    ${headerHtml}
-                    <tbody id="body-${catID}"></tbody>
-                </table>
-            </div>
+            <div class="cat-title"><span>☰ ${cat.nom}</span><span class="delete-icon" onclick="supprimerCat('${catID}')">✕</span></div>
+            <div class="table-container"><table>${headerHtml}<tbody id="body-${catID}"></tbody></table></div>
         `;
 
         const tbody = section.querySelector('tbody');
@@ -239,10 +225,7 @@
 
             const tr = document.createElement('tr');
             tr.dataset.id = pID;
-            let htmlProd = `<td class="prod-name">
-                <span class="handle-prod">⋮⋮</span> ${pName}
-                <span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')" style="font-size:0.8em; opacity:0.2">✕</span>
-            </td>`;
+            let htmlProd = `<td class="prod-name"><span class="handle-prod">⋮⋮</span> ${pName}<span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')" style="font-size:0.7em;opacity:0.2">✕</span></td>`;
             
             jours.forEach(j => {
                 const isHidden = (viewMode !== "semaine" && viewMode !== j) ? "hidden-col" : "";
@@ -256,25 +239,18 @@
                     </div>
                 </td>`;
             });
-            tr.innerHTML = htmlProd;
-            tbody.appendChild(tr);
+            tr.innerHTML = htmlProd; tbody.appendChild(tr);
         });
         parent.appendChild(section);
 
-        new Sortable(tbody, {
-            handle: '.handle-prod', animation: 150,
-            onEnd: function() {
-                tbody.querySelectorAll('tr').forEach((row, i) => update(ref(db, `categories/${catID}/produits/${row.dataset.id}`), { ordre: i }));
-            }
-        });
+        new Sortable(tbody, { handle: '.handle-prod', animation: 150, onEnd: function() {
+            tbody.querySelectorAll('tr').forEach((row, i) => update(ref(db, `categories/${catID}/produits/${row.dataset.id}`), { ordre: i }));
+        }});
     });
 
-    new Sortable(parent, {
-        handle: '.cat-title', animation: 150,
-        onEnd: function() {
-            parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `categories/${block.dataset.id}`), { ordre: i }));
-        }
-    });
+    new Sortable(parent, { handle: '.cat-title', animation: 150, onEnd: function() {
+        parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `categories/${block.dataset.id}`), { ordre: i }));
+    }});
   }
 
   // --- ACTIONS ---
@@ -316,18 +292,15 @@
     });
   };
 
-  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) { push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; } };
+  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
   window.ajouterProduit = () => { 
-      const n = document.getElementById('nomProd').value; 
-      const c = document.getElementById('selectCat').value; 
-      if(n && c) { push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; }
-      else { alert("Veuillez choisir une catégorie"); }
+      const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; 
+      if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 });
   };
   window.supprimerProd = (c, p) => { if(confirm("Supprimer ce produit ?")) remove(ref(db, `categories/${c}/produits/${p}`)); };
   window.supprimerCat = (c) => { if(confirm("Supprimer toute la catégorie ?")) remove(ref(db, `categories/${c}`)); };
   window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), v);
   window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
-  
   window.toggleFiltre = () => { 
       filtreActif = !filtreActif; 
       const btn = document.getElementById('btnFiltre');
@@ -335,7 +308,6 @@
       btn.classList.toggle('btn-orange', filtreActif);
       render(globalData); 
   };
-
   window.resetTotal = () => { if(confirm("⚠️ TOUT EFFACER ?")) remove(ref(db, '/')); };
   window.resetStocksUniquement = async () => {
       if(confirm("Vider les stocks saisis pour Mitry ?")) {
@@ -348,7 +320,6 @@
       }
   };
 
-  // Init jours
   const sj = document.getElementById('stockJourSelect');
   jours.forEach(j => sj.add(new Option(j, j)));
 
