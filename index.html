@@ -99,6 +99,7 @@
         <div class="box">
             <h3>Mise à jour Stock</h3>
             <div class="form-row">
+                <select id="stockCatSelect" onchange="updateStockProdList()"></select>
                 <select id="stockProdSelect"></select>
                 <div style="display:flex; gap:5px;">
                     <select id="stockJourSelect" style="flex:1;"></select>
@@ -117,6 +118,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+  // CONFIGURATION SPECIFIQUE MITRY-MORY
   const firebaseConfig = {
     apiKey: "AIzaSyAbrOwjPc1eOpMF8I8A-LLhiPO8toiu3oQ",
     authDomain: "maison-jebrane.firebaseapp.com",
@@ -134,7 +136,6 @@
   let globalData = {};
   let filtreActif = false;
 
-  // Init Jours pour le stock (une seule fois)
   const sj = document.getElementById('stockJourSelect');
   sj.innerHTML = '<option value="">-- Jour --</option>';
   jours.forEach(j => sj.add(new Option(j, j)));
@@ -160,35 +161,50 @@
 
   window.relancerRender = () => { render(globalData); };
 
+  window.updateStockProdList = () => {
+      const catID = document.getElementById('stockCatSelect').value;
+      const prodSelect = document.getElementById('stockProdSelect');
+      prodSelect.innerHTML = '<option value="">-- Choisir Produit --</option>';
+      
+      if(catID && globalData.categories[catID]) {
+          const produits = globalData.categories[catID].produits || {};
+          Object.keys(produits).forEach(pID => {
+              prodSelect.add(new Option(produits[pID].nom, `${catID}/${pID}`));
+          });
+      }
+  };
+
   function render(data) {
     const containers = data.categories || {};
     const production = data.production || {};
     const parent = document.getElementById('listeCategories');
+    
     const selectCat = document.getElementById('selectCat');
     const filterCatView = document.getElementById('filterCatView');
-    const stockProdSelect = document.getElementById('stockProdSelect');
+    const stockCatSelect = document.getElementById('stockCatSelect');
+    
     const viewMode = document.getElementById('viewMode').value;
     const catFiltre = filterCatView.value;
     
-    // Sauvegarde des sélections actuelles pour ne pas les perdre pendant le render
     const currentCatSelection = filterCatView.value;
-    const currentStockProd = stockProdSelect.value;
+    const currentStockCat = stockCatSelect.value;
+    const currentStockProd = document.getElementById('stockProdSelect').value;
 
     parent.innerHTML = ""; 
     selectCat.innerHTML = ""; 
-    stockProdSelect.innerHTML = '<option value="">-- Choisir Produit --</option>';
+    stockCatSelect.innerHTML = '<option value="">-- Catégorie --</option>';
     filterCatView.innerHTML = '<option value="toutes">📂 Toutes les catégories</option>';
 
     Object.keys(containers).forEach(catID => {
         const catName = containers[catID].nom;
         selectCat.add(new Option(catName, catID));
         filterCatView.add(new Option(catName, catID));
+        stockCatSelect.add(new Option(catName, catID));
 
         if (catFiltre !== "toutes" && catFiltre !== catID) return;
 
         const section = document.createElement('div');
         section.className = "categorie-container";
-        
         let headerHtml = `<thead><tr><th>Produits</th>`;
         jours.forEach(j => {
             const isHidden = (viewMode !== "semaine" && viewMode !== j) ? "hidden-col" : "";
@@ -214,7 +230,6 @@
 
         sortedKeys.forEach(pID => {
             const pName = produits[pID].nom;
-            stockProdSelect.add(new Option(`${catName} - ${pName}`, `${catID}/${pID}/${pName}`));
 
             if (filtreActif) {
                 if (viewMode === "semaine") {
@@ -260,9 +275,11 @@
             });
         }
     });
-    // On restaure les sélections
+    
     filterCatView.value = currentCatSelection;
-    stockProdSelect.value = currentStockProd;
+    stockCatSelect.value = currentStockCat;
+    updateStockProdList();
+    document.getElementById('stockProdSelect').value = currentStockProd;
   }
 
   window.validerStock = () => {
@@ -271,18 +288,17 @@
     const stockVal = document.getElementById('stockValeur').value;
 
     if(!prodVal || !jourVal) {
-        alert("⚠️ Veuillez sélectionner un produit ET un jour.");
+        alert("⚠️ Veuillez sélectionner Catégorie, Produit ET Jour.");
         return;
     }
 
     const combo = prodVal.split('/');
     set(ref(db, `production/${combo[1]}/${jourVal}/stock`), stockVal).then(() => {
         document.getElementById('stockValeur').value = 0;
-        document.getElementById('stockProdSelect').value = ""; // Reset après validation
+        document.getElementById('stockProdSelect').value = ""; 
     });
   };
 
-  // --- RESTE DU CODE (FONCTIONS STANDARDS) ---
   window.exporterExcel = () => {
     const wb = XLSX.utils.book_new();
     const categories = globalData.categories || {};
