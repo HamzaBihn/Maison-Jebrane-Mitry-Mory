@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maison Jebrane - Mitry-Mory</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        body { font-family: 'Playfair Display', serif; margin: 0; padding: 20px; background-color: #1a1a1a; color: #f4f4f4; }
+        .container { max-width: 1600px; margin: auto; }
+        
+        .header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px; border-bottom: 2px solid #D4AF37; padding-bottom: 15px; }
+        .logo { height: 50px; }
+        h2 { color: #D4AF37; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* Configuration des Sections */
+        .admin-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .box { background: #262626; padding: 15px; border-radius: 12px; border: 1px solid #444; }
+        h3 { color: #D4AF37; font-size: 0.8em; text-transform: uppercase; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        
+        .form-row { display: flex; flex-direction: column; gap: 10px; }
+        .champ { display: flex; flex-direction: column; gap: 3px; }
+        label { font-size: 0.7em; color: #D4AF37; text-transform: uppercase; }
+        select, input { padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; font-family: sans-serif; }
+
+        .btn { padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none; text-transform: uppercase; font-size: 0.8em; transition: 0.2s; }
+        .btn-gold { background: linear-gradient(45deg, #D4AF37, #F9E586); color: #1a1a1a; }
+        .btn-orange { background: #e67e22; color: white; }
+        .btn-outline { background: transparent; border: 1px solid #D4AF37; color: #D4AF37; }
+        .btn-danger { background: #721c24; color: #f8d7da; border: 1px solid #f5c6cb; }
+        .btn:hover { opacity: 0.9; transform: scale(1.02); }
+
+        /* Tableaux par Catégorie */
+        .categorie-container { margin-bottom: 40px; }
+        .cat-title { background: #D4AF37; color: #1a1a1a; padding: 10px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        
+        .table-container { overflow-x: auto; background: #262626; border-radius: 0 0 12px 12px; border: 1px solid #D4AF37; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.8em; }
+        th { background: #1a1a1a; color: #D4AF37; padding: 10px; border: 1px solid #3d3d3d; }
+        td { border: 1px solid #3d3d3d; text-align: center; height: 50px; }
+        
+        .handle { cursor: grab; color: #D4AF37; padding-right: 10px; font-size: 1.2em; }
+        .prod-name { font-weight: bold; text-align: left; padding-left: 10px; min-width: 200px; display: flex; align-items: center; }
+
+        /* Grille Triple Valeurs */
+        .cell-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; height: 100%; }
+        .sub-cell { border-right: 1px solid #3d3d3d; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; }
+        .sub-cell:last-child { border-right: none; }
+        .label-sub { font-size: 0.5em; color: #888; }
+        .val-obj { background: transparent; color: #fff; border: none; width: 30px; text-align: center; border-bottom: 1px solid #D4AF37; }
+        .val-stock { color: #D4AF37; font-weight: bold; }
+        .val-prod { color: #F9E586; font-weight: bold; font-size: 1.1em; }
+
+        .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: auto; padding-right: 10px; opacity: 0.5; }
+        .delete-icon:hover { opacity: 1; }
+
+        #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="logo.png" alt="" class="logo">
+        <h2>Maison Jebrane - Mitry <span id="status">Connexion...</span></h2>
+    </div>
+
+    <div class="admin-panel">
+        <div class="box">
+            <h3>Période & Rapports</h3>
+            <div class="form-row">
+                <input type="date" id="dateDebut" onchange="sauverDates()">
+                <input type="date" id="dateFin" onchange="sauverDates()">
+                <button class="btn btn-gold" onclick="exporterExcel()">📊 Excel Global</button>
+                <button class="btn btn-orange" onclick="resetStocksUniquement()">🔄 Vider les Stocks</button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3>Nouvelle Catégorie</h3>
+            <div class="form-row">
+                <input type="text" id="nomCat" placeholder="ex: Entremets, Viennoiseries...">
+                <button class="btn btn-outline" onclick="ajouterCategorie()">+ Créer Tableau</button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3>Ajouter un Produit</h3>
+            <div class="form-row">
+                <input type="text" id="nomProd" placeholder="Nom du gâteau...">
+                <select id="selectCat"></select>
+                <button class="btn btn-gold" onclick="ajouterProduit()">+ Ajouter au Tableau</button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3>Mise à jour Stock</h3>
+            <div class="form-row">
+                <select id="stockProdSelect"></select>
+                <div style="display:flex; gap:5px;">
+                    <select id="stockJourSelect"></select>
+                    <input type="number" id="stockValeur" value="0" style="width:60px;">
+                </div>
+                <button class="btn btn-gold" onclick="validerStock()">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="listeCategories"></div>
+    <button class="btn btn-danger" style="margin-top:50px;" onclick="resetTotal()">⚠️ Tout Effacer (Catalogue inclus)</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  // NOUVELLE CONFIGURATION FIREBASE (MITRY-MORY)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBrU8HKWw5ysqQB5jEKD27SHAeHAaJ4HZE",
+    authDomain: "maison-jebrane-mitry-mory.firebaseapp.com",
+    databaseURL: "https://maison-jebrane-mitry-mory-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "maison-jebrane-mitry-mory",
+    storageBucket: "maison-jebrane-mitry-mory.firebasestorage.app",
+    messagingSenderId: "412946259092",
+    appId: "1:412946259092:web:efb72fc6a964ff7f202881",
+    measurementId: "G-QH80RW0YQ1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+  // --- LOGIQUE DE RENDU ---
+
+  onValue(ref(db, '/'), (snapshot) => {
+    const data = snapshot.val() || {};
+    document.getElementById('status').innerText = "● EN LIGNE";
+    
+    if(data.config && data.config.dates) {
+        document.getElementById('dateDebut').value = data.config.dates.debut || "";
+        document.getElementById('dateFin').value = data.config.dates.fin || "";
+    }
+
+    render(data);
+  });
+
+  function render(data) {
+    const containers = data.categories || {};
+    const production = data.production || {};
+    const parent = document.getElementById('listeCategories');
+    const selectCat = document.getElementById('selectCat');
+    const stockProdSelect = document.getElementById('stockProdSelect');
+    
+    parent.innerHTML = "";
+    selectCat.innerHTML = "";
+    stockProdSelect.innerHTML = "";
+
+    Object.keys(containers).forEach(catID => {
+        const catName = containers[catID].nom;
+        selectCat.add(new Option(catName, catID));
+
+        const section = document.createElement('div');
+        section.className = "categorie-container";
+        section.innerHTML = `
+            <div class="cat-title">${catName} <span class="delete-icon" onclick="supprimerCat('${catID}')">Supprimer Catégorie</span></div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Produits</th>${jours.map(j => `<th>${j}</th>`).join('')}</tr></thead>
+                    <tbody id="body-${catID}"></tbody>
+                </table>
+            </div>
+        `;
+        parent.appendChild(section);
+
+        const tbody = document.getElementById(`body-${catID}`);
+        const produits = containers[catID].produits || {};
+        const sortedKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
+
+        sortedKeys.forEach(pID => {
+            const pName = produits[pID].nom;
+            stockProdSelect.add(new Option(`${catName} - ${pName}`, `${catID}/${pID}/${pName}`));
+
+            const tr = document.createElement('tr');
+            tr.dataset.id = pID; tr.dataset.cat = catID;
+            
+            let htmlProd = `<td class="prod-name"><span class="handle">☰</span> ${pName} <span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')">✕</span></td>`;
+            
+            jours.forEach(j => {
+                const vals = (production[pID] && production[pID][j]) ? production[pID][j] : { obj: 0, stock: 0 };
+                const aFaire = Math.max(0, (parseInt(vals.obj)||0) - (parseInt(vals.stock)||0));
+                htmlProd += `
+                    <td>
+                        <div class="cell-grid">
+                            <div class="sub-cell"><span class="label-sub">Obj</span><input type="number" class="val-obj" value="${vals.obj||0}" onchange="updateVal('${pID}','${j}','obj',this.value)"></div>
+                            <div class="sub-cell"><span class="label-sub">Stk</span><span class="val-stock">${vals.stock||0}</span></div>
+                            <div class="sub-cell"><span class="label-sub">Rst</span><span class="val-prod">${aFaire}</span></div>
+                        </div>
+                    </td>`;
+            });
+            tr.innerHTML = htmlProd;
+            tbody.appendChild(tr);
+        });
+
+        new Sortable(tbody, {
+            handle: '.handle', animation: 150,
+            onEnd: function() {
+                tbody.querySelectorAll('tr').forEach((row, index) => {
+                    update(ref(db, `categories/${catID}/produits/${row.dataset.id}`), { ordre: index });
+                });
+            }
+        });
+    });
+  }
+
+  // --- ACTIONS ---
+
+  window.resetStocksUniquement = async () => {
+    if(confirm("Remettre à zéro tous les STOCKS de Mitry ?")) {
+        const prodRef = ref(db, 'production');
+        const snapshot = await get(prodRef);
+        if (snapshot.exists()) {
+            const production = snapshot.val();
+            Object.keys(production).forEach(pID => {
+                jours.forEach(j => { if (production[pID][j]) production[pID][j].stock = 0; });
+            });
+            await set(prodRef, production);
+        }
+    }
+  };
+
+  window.ajouterCategorie = () => {
+    const nom = document.getElementById('nomCat').value;
+    if(nom) { push(ref(db, 'categories'), { nom: nom }); document.getElementById('nomCat').value = ""; }
+  };
+
+  window.ajouterProduit = () => {
+    const nom = document.getElementById('nomProd').value;
+    const catID = document.getElementById('selectCat').value;
+    if(nom && catID) {
+        push(ref(db, `categories/${catID}/produits`), { nom: nom, ordre: 99 });
+        document.getElementById('nomProd').value = "";
+    }
+  };
+
+  window.updateVal = (pID, jour, type, val) => set(ref(db, `production/${pID}/${jour}/${type}`), val);
+
+  window.validerStock = () => {
+    const combo = document.getElementById('stockProdSelect').value.split('/');
+    const jour = document.getElementById('stockJourSelect').value;
+    const val = document.getElementById('stockValeur').value;
+    set(ref(db, `production/${combo[1]}/${jour}/stock`), val);
+  };
+
+  window.supprimerProd = (catID, pID) => { if(confirm("Supprimer ce produit ?")) remove(ref(db, `categories/${catID}/produits/${pID}`)); };
+  window.supprimerCat = (catID) => { if(confirm("Supprimer TOUTE la catégorie ?")) remove(ref(db, `categories/${catID}`)); };
+  window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
+  window.resetTotal = () => { if(confirm("⚠️ EFFACER TOUTE LA BASE MITRY ?")) remove(ref(db, '/')); };
+
+  jours.forEach(j => document.getElementById('stockJourSelect').add(new Option(j, j)));
+
+  window.exporterExcel = () => {
+      const wb = XLSX.utils.book_new();
+      document.querySelectorAll('table').forEach((table, i) => {
+          const ws = XLSX.utils.table_to_sheet(table);
+          XLSX.utils.book_append_sheet(wb, ws, `Cat_${i+1}`);
+      });
+      XLSX.writeFile(wb, "Production_Mitry_Mory.xlsx");
+  };
+</script>
+</body>
+</html>
