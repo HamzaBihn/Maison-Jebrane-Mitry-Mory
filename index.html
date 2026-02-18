@@ -39,13 +39,20 @@
         .prod-name { font-weight: bold; text-align: left; padding-left: 10px; min-width: 180px; display: flex; align-items: center; }
         
         .cell-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
-        .sub-cell { background: #333; border-radius: 4px; display: flex; flex-direction: column; padding: 4px; }
-        .label-sub { font-size: 0.55em; color: #aaa; }
+        .sub-cell { background: #333; border-radius: 4px; display: flex; flex-direction: column; padding: 4px; transition: 0.3s; }
+        .label-sub { font-size: 0.55em; color: #aaa; margin-bottom: 2px; }
+        
+        /* ALERTES COULEURS */
+        .stock-vide { background-color: #d35400 !important; color: white !important; } /* Orange */
+        .reste-positif { background-color: #c0392b !important; color: white !important; } /* Rouge */
+        
         .val-obj { background: transparent; color: #fff; border: none; width: 100%; text-align: center; font-weight: bold; font-size: 1.1em; }
-        .val-stock { color: #D4AF37; font-weight: bold; font-size: 1.1em; }
-        .val-prod { color: #F9E586; font-weight: bold; font-size: 1.2em; }
+        .val-stock { font-weight: bold; font-size: 1.1em; }
+        .val-prod { font-weight: bold; font-size: 1.2em; }
         
         body.zoom-large { --cell-padding: 12px; --font-size-base: 1.1em; }
+        body.zoom-large .sub-cell { padding: 8px; }
+
         #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
         .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: 10px; font-weight: bold; }
         .hidden-col { display: none; }
@@ -111,7 +118,7 @@
                     <button class="btn btn-outline" onclick="changeZoom('large')" style="flex:1;">Large</button>
                 </div>
                 <select id="viewMode" onchange="relancerRender()">
-                    <option value="semaine">📅 Vue Semaine complète</option>
+                    <option value="semaine">📅 Semaine complète</option>
                     <option value="Lundi">Lundi</option><option value="Mardi">Mardi</option>
                     <option value="Mercredi">Mercredi</option><option value="Jeudi">Jeudi</option>
                     <option value="Vendredi">Vendredi</option><option value="Samedi">Samedi</option>
@@ -133,7 +140,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // CONFIGURATION FOURNIE POUR MITRY-MORY
+  // CONFIGURATION MITRY-MORY
   const firebaseConfig = {
     apiKey: "AIzaSyBrU8HKWw5ysqQB5jEKD27SHAeHAaJ4HZE",
     authDomain: "maison-jebrane-mitry-mory.firebaseapp.com",
@@ -152,7 +159,6 @@
   let filtreActif = false;
   let wakeLock = null;
 
-  // Anti-veille
   const requestWakeLock = async () => {
     try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
   };
@@ -216,26 +222,32 @@
             const pName = produits[pID].nom;
             if (filtreActif) {
                 const checkDay = (viewMode === "semaine") ? jours : [viewMode];
-                const hasReste = checkDay.some(j => {
+                const aFaire = checkDay.some(j => {
                     const v = (production[pID] && production[pID][j]) ? production[pID][j] : { obj: 0, stock: 0 };
                     return (parseInt(v.obj)||0) - (parseInt(v.stock)||0) > 0;
                 });
-                if (!hasReste) return;
+                if (!aFaire) return;
             }
 
             const tr = document.createElement('tr');
             tr.dataset.id = pID;
-            let htmlProd = `<td class="prod-name"><span class="handle-prod">⋮⋮</span> ${pName}<span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')" style="font-size:0.7em;opacity:0.2">✕</span></td>`;
+            let htmlProd = `<td class="prod-name"><span class="handle-prod">⋮⋮</span> ${pName}</td>`;
             
             jours.forEach(j => {
                 const isHidden = (viewMode !== "semaine" && viewMode !== j) ? "hidden-col" : "";
                 const vals = (production[pID] && production[pID][j]) ? production[pID][j] : { obj: 0, stock: 0 };
-                const reste = Math.max(0, (parseInt(vals.obj)||0) - (parseInt(vals.stock)||0));
+                const obj = parseInt(vals.obj)||0;
+                const stk = parseInt(vals.stock)||0;
+                const reste = Math.max(0, obj - stk);
+                
+                const classStock = (stk === 0 && obj > 0) ? "sub-cell stock-vide" : "sub-cell";
+                const classReste = (reste > 0) ? "sub-cell reste-positif" : "sub-cell";
+
                 htmlProd += `<td class="${isHidden}">
                     <div class="cell-grid">
-                        <div class="sub-cell"><span class="label-sub">Obj</span><input type="number" class="val-obj" value="${vals.obj||0}" onchange="updateVal('${pID}','${j}','obj',this.value)"></div>
-                        <div class="sub-cell"><span class="label-sub">Stk</span><span class="val-stock">${vals.stock||0}</span></div>
-                        <div class="sub-cell"><span class="label-sub">Rst</span><span class="val-prod">${reste}</span></div>
+                        <div class="sub-cell"><span class="label-sub">Obj</span><input type="number" class="val-obj" value="${obj}" onchange="updateVal('${pID}','${j}','obj',this.value)"></div>
+                        <div class="${classStock}"><span class="label-sub">Stk</span><span class="val-stock">${stk}</span></div>
+                        <div class="${classReste}"><span class="label-sub">Rst</span><span class="val-prod">${reste}</span></div>
                     </div>
                 </td>`;
             });
@@ -253,7 +265,6 @@
     }});
   }
 
-  // --- ACTIONS ---
   window.quickSearchProd = () => {
       const search = document.getElementById('quickSearch').value.toLowerCase();
       if (search.length < 2) return;
@@ -295,22 +306,21 @@
   window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
   window.ajouterProduit = () => { 
       const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; 
-      if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 });
+      if(n && c) { push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; }
   };
-  window.supprimerProd = (c, p) => { if(confirm("Supprimer ce produit ?")) remove(ref(db, `categories/${c}/produits/${p}`)); };
-  window.supprimerCat = (c) => { if(confirm("Supprimer toute la catégorie ?")) remove(ref(db, `categories/${c}`)); };
   window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), v);
   window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
   window.toggleFiltre = () => { 
       filtreActif = !filtreActif; 
       const btn = document.getElementById('btnFiltre');
-      btn.innerHTML = filtreActif ? "👁️ Afficher tout" : "🔍 Masquer les lignes avec un reste à 0";
+      btn.innerHTML = filtreActif ? "👁️ Afficher toutes les lignes" : "🔍 Masquer les lignes avec un reste à 0";
       btn.classList.toggle('btn-orange', filtreActif);
       render(globalData); 
   };
-  window.resetTotal = () => { if(confirm("⚠️ TOUT EFFACER ?")) remove(ref(db, '/')); };
+  window.resetTotal = () => { if(confirm("⚠️ TOUT EFFACER MITRY ?")) remove(ref(db, '/')); };
+  window.supprimerCat = (c) => { if(confirm("Supprimer cette catégorie ?")) remove(ref(db, `categories/${c}`)); };
   window.resetStocksUniquement = async () => {
-      if(confirm("Vider les stocks saisis pour Mitry ?")) {
+      if(confirm("Vider les stocks ?")) {
           const s = await get(ref(db, 'production'));
           if(s.exists()){
               let d = s.val();
