@@ -43,6 +43,7 @@
         #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
         .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: auto; opacity: 0.5; }
         .hidden-col { display: none; }
+        #quickSearch { border: 1px solid #D4AF37; background: #1a1a1a; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -99,8 +100,11 @@
         <div class="box">
             <h3>Mise à jour Stock</h3>
             <div class="form-row">
-                <select id="stockCatSelect" onchange="updateStockProdList()"></select>
-                <select id="stockProdSelect"></select>
+                <input type="text" id="quickSearch" placeholder="🔍 Recherche rapide (ex: Crois...)" oninput="quickSearchProd()">
+                <div style="display:flex; gap:5px;">
+                    <select id="stockCatSelect" onchange="updateStockProdList()" style="flex:1;"></select>
+                    <select id="stockProdSelect" style="flex:2;"></select>
+                </div>
                 <div style="display:flex; gap:5px;">
                     <select id="stockJourSelect" style="flex:1;"></select>
                     <input type="number" id="stockValeur" value="0" style="width:60px;">
@@ -118,7 +122,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // CONFIGURATION SPECIFIQUE MITRY-MORY
   const firebaseConfig = {
     apiKey: "AIzaSyAbrOwjPc1eOpMF8I8A-LLhiPO8toiu3oQ",
     authDomain: "maison-jebrane.firebaseapp.com",
@@ -135,6 +138,20 @@
   const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   let globalData = {};
   let filtreActif = false;
+  let wakeLock = null;
+
+  // --- ANTI-VEILLE ---
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (err) {}
+  };
+  document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
+  });
+  document.addEventListener('click', () => { if(!wakeLock) requestWakeLock(); }, { once: true });
 
   const sj = document.getElementById('stockJourSelect');
   sj.innerHTML = '<option value="">-- Jour --</option>';
@@ -161,11 +178,27 @@
 
   window.relancerRender = () => { render(globalData); };
 
+  window.quickSearchProd = () => {
+      const search = document.getElementById('quickSearch').value.toLowerCase();
+      if (search.length < 2) return;
+      const categories = globalData.categories || {};
+      for (let catID in categories) {
+          const produits = categories[catID].produits || {};
+          for (let pID in produits) {
+              if (produits[pID].nom.toLowerCase().includes(search)) {
+                  document.getElementById('stockCatSelect').value = catID;
+                  updateStockProdList();
+                  document.getElementById('stockProdSelect').value = `${catID}/${pID}`;
+                  return; 
+              }
+          }
+      }
+  };
+
   window.updateStockProdList = () => {
       const catID = document.getElementById('stockCatSelect').value;
       const prodSelect = document.getElementById('stockProdSelect');
       prodSelect.innerHTML = '<option value="">-- Choisir Produit --</option>';
-      
       if(catID && globalData.categories[catID]) {
           const produits = globalData.categories[catID].produits || {};
           Object.keys(produits).forEach(pID => {
@@ -178,11 +211,9 @@
     const containers = data.categories || {};
     const production = data.production || {};
     const parent = document.getElementById('listeCategories');
-    
     const selectCat = document.getElementById('selectCat');
     const filterCatView = document.getElementById('filterCatView');
     const stockCatSelect = document.getElementById('stockCatSelect');
-    
     const viewMode = document.getElementById('viewMode').value;
     const catFiltre = filterCatView.value;
     
@@ -190,8 +221,7 @@
     const currentStockCat = stockCatSelect.value;
     const currentStockProd = document.getElementById('stockProdSelect').value;
 
-    parent.innerHTML = ""; 
-    selectCat.innerHTML = ""; 
+    parent.innerHTML = ""; selectCat.innerHTML = ""; 
     stockCatSelect.innerHTML = '<option value="">-- Catégorie --</option>';
     filterCatView.innerHTML = '<option value="toutes">📂 Toutes les catégories</option>';
 
@@ -225,12 +255,10 @@
         const tbody = section.querySelector('tbody');
         const produits = containers[catID].produits || {};
         const sortedKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
-
         let hasVisibleProduct = false;
 
         sortedKeys.forEach(pID => {
             const pName = produits[pID].nom;
-
             if (filtreActif) {
                 if (viewMode === "semaine") {
                     const aFaireSemaine = jours.some(j => {
@@ -248,7 +276,6 @@
             const tr = document.createElement('tr');
             tr.dataset.id = pID;
             let htmlProd = `<td class="prod-name"><span class="handle">☰</span> ${pName} <span class="delete-icon" onclick="supprimerProd('${catID}','${pID}')">✕</span></td>`;
-            
             jours.forEach(j => {
                 const isHidden = (viewMode !== "semaine" && viewMode !== j) ? "hidden-col" : "";
                 const vals = (production[pID] && production[pID][j]) ? production[pID][j] : { obj: 0, stock: 0 };
@@ -275,7 +302,6 @@
             });
         }
     });
-    
     filterCatView.value = currentCatSelection;
     stockCatSelect.value = currentStockCat;
     updateStockProdList();
@@ -286,16 +312,12 @@
     const prodVal = document.getElementById('stockProdSelect').value;
     const jourVal = document.getElementById('stockJourSelect').value;
     const stockVal = document.getElementById('stockValeur').value;
-
-    if(!prodVal || !jourVal) {
-        alert("⚠️ Veuillez sélectionner Catégorie, Produit ET Jour.");
-        return;
-    }
-
+    if(!prodVal || !jourVal) { alert("⚠️ Sélectionnez Produit et Jour."); return; }
     const combo = prodVal.split('/');
     set(ref(db, `production/${combo[1]}/${jourVal}/stock`), stockVal).then(() => {
         document.getElementById('stockValeur').value = 0;
         document.getElementById('stockProdSelect').value = ""; 
+        document.getElementById('quickSearch').value = ""; 
     });
   };
 
