@@ -49,17 +49,15 @@
         .val-stock { font-weight: bold; font-size: 1.1em; }
         .val-prod { font-weight: bold; font-size: 1.2em; }
         
-        body.zoom-large { --cell-padding: 12px; --font-size-base: 1.1em; }
         #status { font-size: 0.6em; padding: 4px 10px; border-radius: 20px; border: 1px solid #D4AF37; color: #D4AF37; }
         .delete-icon { color: #ff4d4d; cursor: pointer; margin-left: 10px; font-weight: bold; }
         .hidden-col { display: none; }
     </style>
 </head>
-<body class="zoom-normal">
+<body>
 
 <div class="container">
     <div class="header">
-        <img src="logo.png" alt="" class="logo">
         <h2>Maison Jebrane Mitry-Mory <span id="status">Connexion...</span></h2>
     </div>
 
@@ -112,10 +110,6 @@
         <div class="box">
             <h3>4. Affichage</h3>
             <div class="form-row">
-                <div style="display:flex; gap:5px;">
-                    <button class="btn btn-outline" onclick="changeZoom('normal')" style="flex:1;">Normal</button>
-                    <button class="btn btn-outline" onclick="changeZoom('large')" style="flex:1;">Large</button>
-                </div>
                 <select id="filterCategory" onchange="relancerRender()">
                     <option value="all">📁 Toutes les catégories</option>
                 </select>
@@ -132,9 +126,6 @@
     </div>
 
     <div id="listeCategories"></div>
-    <div style="margin-top: 50px; padding: 20px; text-align: center;">
-        <button class="btn btn-danger" onclick="resetTotal()">⚠️ RÉINITIALISATION COMPLÈTE MITRY</button>
-    </div>
 </div>
 
 <script type="module">
@@ -157,9 +148,6 @@
   const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   let globalData = {};
   let filtreActif = false;
-
-  window.changeZoom = (l) => { document.body.className = `zoom-${l}`; localStorage.setItem('mj-zoom-mitry', l); };
-  if(localStorage.getItem('mj-zoom-mitry')) changeZoom(localStorage.getItem('mj-zoom-mitry'));
 
   onValue(ref(db, '/'), (snapshot) => {
     globalData = snapshot.val() || {};
@@ -184,9 +172,9 @@
     const catToFilter = filterCatDropdown.value;
     
     parent.innerHTML = ""; 
+    const currentFilter = filterCatDropdown.value;
     selectCat.innerHTML = '<option value="">Choix catégorie...</option>';
     stockCatSelect.innerHTML = '<option value="">-- Catégorie --</option>';
-    const currentFilter = filterCatDropdown.value;
     filterCatDropdown.innerHTML = '<option value="all">📁 Toutes les catégories</option>';
 
     const sortedCatKeys = Object.keys(containers).sort((a,b) => (containers[a].ordre || 0) - (containers[b].ordre || 0));
@@ -217,37 +205,42 @@
 
         const tbody = section.querySelector('tbody');
         const produits = cat.produits || {};
-        const sortedProdKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
+        const sortedPKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
 
-        sortedProdKeys.forEach(pID => {
+        sortedPKeys.forEach(pID => {
             const tr = document.createElement('tr');
             tr.dataset.id = pID;
             let htmlProd = `<td class="prod-name"><span class="handle-prod">⋮⋮</span> ${produits[pID].nom}</td>`;
             
             jours.forEach(j => {
                 const isHidden = (viewMode !== "semaine" && viewMode !== j) ? "hidden-col" : "";
-                const vals = (production[pID] && production[pID][j]) ? production[pID][j] : {};
-                
-                const hasStock = vals.hasOwnProperty('stock');
-                const obj = parseInt(vals.obj) || 0;
-                const stk = hasStock ? parseInt(vals.stock) : null;
-                const reste = hasStock ? Math.max(0, obj - stk) : obj;
-                
-                const classStock = (hasStock && stk === 0 && obj > 0) ? "sub-cell stock-vide" : "sub-cell";
-                const classReste = (hasStock && reste > 0) ? "sub-cell reste-positif" : "sub-cell";
+                const v = (production[pID] && production[pID][j]) ? production[pID][j] : {};
+                const hasS = v.hasOwnProperty('stock');
+                const obj = parseInt(v.obj) || 0;
+                const stk = hasS ? parseInt(v.stock) : null;
+                const rst = hasS ? Math.max(0, obj - stk) : obj;
 
                 htmlProd += `<td class="${isHidden}">
                     <div class="cell-grid">
                         <div class="sub-cell"><span class="label-sub">Obj</span><input type="number" class="val-obj" value="${obj}" onchange="updateVal('${pID}','${j}','obj',this.value)"></div>
-                        <div class="${classStock}"><span class="label-sub">Stk</span><span class="val-stock">${hasStock ? stk : '-'}</span></div>
-                        <div class="${classReste}"><span class="label-sub">Rst</span><span class="val-prod">${hasStock ? reste : '-'}</span></div>
+                        <div class="sub-cell ${hasS && stk===0 && obj>0 ? 'stock-vide' : ''}"><span class="label-sub">Stk</span><span class="val-stock">${hasS ? stk : '-'}</span></div>
+                        <div class="sub-cell ${hasS && rst>0 ? 'reste-positif' : ''}"><span class="label-sub">Rst</span><span class="val-prod">${hasS ? rst : '-'}</span></div>
                     </div>
                 </td>`;
             });
             tr.innerHTML = htmlProd; tbody.appendChild(tr);
         });
         parent.appendChild(section);
+
+        new Sortable(tbody, { handle: '.handle-prod', animation: 150, onEnd: () => {
+            tbody.querySelectorAll('tr').forEach((row, i) => update(ref(db, `categories/${catID}/produits/${row.dataset.id}`), { ordre: i }));
+        }});
     });
+
+    new Sortable(parent, { handle: '.cat-title', animation: 150, onEnd: () => {
+        parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `categories/${block.dataset.id}`), { ordre: i }));
+    }});
+
     filterCatDropdown.value = currentFilter;
   }
 
@@ -255,47 +248,28 @@
     const pVal = document.getElementById('stockProdSelect').value;
     const jVal = document.getElementById('stockJourSelect').value;
     const sVal = document.getElementById('stockValeur').value;
-    if(!jVal) return alert("⚠️ Sélectionne un JOUR");
-    if(!pVal) return alert("⚠️ Sélectionne un PRODUIT");
-    if(sVal === "") return alert("⚠️ Entre une quantité (même 0)");
-    
+    if(!jVal || !pVal || sVal==="") return alert("Remplis tout !");
     const [cID, pID] = pVal.split('/');
     set(ref(db, `production/${pID}/${jVal}/stock`), parseInt(sVal)).then(() => {
         document.getElementById('stockValeur').value = "";
-        document.getElementById('stockJourSelect').value = "";
     });
   };
 
   window.resetStocksUniquement = async () => {
-      if(confirm("Cela va effacer tous les inventaires de Mitry. Continuer ?")) {
+      if(confirm("Effacer les inventaires de Mitry ?")) {
           const s = await get(ref(db, 'production'));
           if(s.exists()){
               let d = s.val();
-              Object.keys(d).forEach(pID => {
-                  Object.keys(d[pID]).forEach(j => {
-                      if(d[pID][j].hasOwnProperty('stock')) delete d[pID][j].stock;
-                  });
-              });
+              Object.keys(d).forEach(p => Object.keys(d[p]).forEach(j => { if(d[p][j].hasOwnProperty('stock')) delete d[p][j].stock; }));
               set(ref(db, 'production'), d);
           }
       }
   };
 
-  window.quickSearchProd = () => {
-      const search = document.getElementById('quickSearch').value.toLowerCase();
-      if (search.length < 2) return;
-      for (let cID in globalData.categories) {
-          const prods = globalData.categories[cID].produits || {};
-          for (let pID in prods) {
-              if (prods[pID].nom.toLowerCase().includes(search)) {
-                  document.getElementById('stockCatSelect').value = cID;
-                  updateStockProdList();
-                  document.getElementById('stockProdSelect').value = `${cID}/${pID}`;
-                  return;
-              }
-          }
-      }
-  };
+  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); };
+  window.ajouterProduit = () => { const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); };
+  window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), v);
+  window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
   window.updateStockProdList = () => {
       const cID = document.getElementById('stockCatSelect').value;
       const ps = document.getElementById('stockProdSelect');
@@ -305,46 +279,39 @@
           Object.keys(prods).sort((a,b)=>(prods[a].ordre||0)-(prods[b].ordre||0)).forEach(pID => ps.add(new Option(prods[pID].nom, `${cID}/${pID}`)));
       }
   };
-  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
-  window.ajouterProduit = () => { 
-      const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; 
-      if(n && c) { push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; }
-  };
-  window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), v);
-  window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
-  window.supprimerCat = (c) => { if(confirm("Supprimer ?")) remove(ref(db, `categories/${c}`)); };
-  window.resetTotal = () => { if(confirm("RESET TOTAL MITRY ?")) remove(ref(db, '/')); };
-  window.toggleFiltre = () => { filtreActif = !filtreActif; document.getElementById('btnFiltre').classList.toggle('btn-orange', filtreActif); render(globalData); };
-
+  
   const sj = document.getElementById('stockJourSelect');
   jours.forEach(j => sj.add(new Option(j, j)));
 
   window.exporterExcel = () => {
-    const wb = XLSX.utils.book_new();
-    const cats = globalData.categories || {};
-    const prod = globalData.production || {};
-    const dDebut = document.getElementById('dateDebut').value || "SansDate";
-    const dFin = document.getElementById('dateFin').value || "SansDate";
-    Object.keys(cats).forEach(cID => {
-        const row1 = [""]; jours.forEach(j => { row1.push(j, "", ""); });
-        const row2 = ["Produit"]; jours.forEach(() => { row2.push("Obj", "Stk", "Rst"); });
-        const rowsData = [row1, row2];
-        const pList = cats[cID].produits || {};
-        Object.keys(pList).forEach(pID => {
-            const row = [pList[pID].nom];
-            jours.forEach(j => {
-                const v = (prod[pID] && prod[pID][j]) ? prod[pID][j] : {};
-                const hasS = v.hasOwnProperty('stock');
-                row.push(v.obj||0, hasS ? v.stock : "-", hasS ? Math.max(0, (v.obj||0)-v.stock) : "-");
-            });
-            rowsData.push(row);
-        });
-        const ws = XLSX.utils.aoa_to_sheet(rowsData);
-        ws['!merges'] = [];
-        for(let i=0; i<7; i++) { ws['!merges'].push({ s: { r: 0, c: 1+(i*3) }, e: { r: 0, c: 3+(i*3) } }); }
-        XLSX.utils.book_append_sheet(wb, ws, cats[cID].nom.substring(0,30));
-    });
-    XLSX.writeFile(wb, `Rapport_Mitry_${dDebut}_au_${dFin}.xlsx`);
+      const wb = XLSX.utils.book_new();
+      const cats = globalData.categories || {};
+      const prod = globalData.production || {};
+      const dDebut = document.getElementById('dateDebut').value || "SansDate";
+      const dFin = document.getElementById('dateFin').value || "SansDate";
+
+      Object.keys(cats).forEach(cID => {
+          const row1 = [""]; jours.forEach(j => row1.push(j, "", ""));
+          const row2 = ["Produit"]; jours.forEach(() => row2.push("Obj", "Stk", "Rst"));
+          const data = [row1, row2];
+          const pList = cats[cID].produits || {};
+          const sortedPKeys = Object.keys(pList).sort((a,b) => (pList[a].ordre||0) - (pList[b].ordre||0));
+          
+          sortedPKeys.forEach(pID => {
+              const row = [pList[pID].nom];
+              jours.forEach(j => {
+                  const v = (prod[pID] && prod[pID][j]) ? prod[pID][j] : {};
+                  const hasS = v.hasOwnProperty('stock');
+                  row.push(v.obj||0, hasS?v.stock:"-", hasS?Math.max(0,(v.obj||0)-v.stock):"-");
+              });
+              data.push(row);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(data);
+          ws['!merges'] = [];
+          for(let i=0; i<7; i++) ws['!merges'].push({ s:{r:0, c:1+(i*3)}, e:{r:0, c:3+(i*3)} });
+          XLSX.utils.book_append_sheet(wb, ws, cats[cID].nom.substring(0,30));
+      });
+      XLSX.writeFile(wb, `Rapport_Mitry_${dDebut}_au_${dFin}.xlsx`);
   };
 </script>
 </body>
