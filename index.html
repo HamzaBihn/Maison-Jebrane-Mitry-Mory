@@ -24,7 +24,6 @@
         .btn-gold { background: linear-gradient(45deg, #D4AF37, #F9E586); color: #1a1a1a; }
         .btn-orange { background: #e67e22; color: white; }
         .btn-outline { background: transparent; border: 1px solid #D4AF37; color: #D4AF37; }
-        .btn-danger { background: #721c24; color: #f8d7da; border: 1px solid #f5c6cb; }
         
         .categorie-container { margin-bottom: 30px; border: 1px solid #444; border-radius: 12px; overflow: hidden; }
         .cat-title { background: #D4AF37; color: #1a1a1a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; cursor: grab; }
@@ -66,8 +65,8 @@
             <h3>1. Période & Rapports</h3>
             <div class="form-row">
                 <div style="display:flex; gap:5px;">
-                    <input type="date" id="dateDebut" onchange="sauverDates()" style="flex:1;">
-                    <input type="date" id="dateFin" onchange="sauverDates()" style="flex:1;">
+                    <input type="date" id="dateDebut" onchange="sauverDates()">
+                    <input type="date" id="dateFin" onchange="sauverDates()">
                 </div>
                 <button class="btn btn-gold" onclick="exporterExcel()">📊 Rapport Excel</button>
                 <button class="btn btn-orange" onclick="resetStocksUniquement()">🔄 Vider les stocks</button>
@@ -77,30 +76,23 @@
         <div class="box">
             <h3>2. Gestion Catalogue</h3>
             <div class="form-row">
+                <input type="text" id="nomCat" placeholder="Nouvelle catégorie...">
+                <button class="btn btn-outline" onclick="ajouterCategorie()">Ajouter Catégorie</button>
                 <div style="display:flex; gap:5px;">
-                    <input type="text" id="nomCat" placeholder="Nouvelle catégorie..." style="flex:1;">
-                    <button class="btn btn-outline" onclick="ajouterCategorie()">+</button>
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <input type="text" id="nomProd" placeholder="Nouveau produit..." style="flex:1;">
+                    <input type="text" id="nomProd" placeholder="Nouveau produit..." style="flex:2;">
                     <select id="selectCat" style="flex:1;"></select>
-                    <button class="btn btn-gold" onclick="ajouterProduit()">+</button>
                 </div>
+                <button class="btn btn-gold" onclick="ajouterProduit()">Ajouter Produit</button>
             </div>
         </div>
 
         <div class="box">
             <h3>3. Mise à jour Stock</h3>
             <div class="form-row">
-                <input type="text" id="quickSearch" placeholder="🔍 Recherche produit..." oninput="quickSearchProd()">
+                <select id="stockCatSelect" onchange="updateStockProdList()"></select>
+                <select id="stockProdSelect"></select>
                 <div style="display:flex; gap:5px;">
-                    <select id="stockCatSelect" onchange="updateStockProdList()" style="flex:1;"></select>
-                    <select id="stockProdSelect" style="flex:2;"></select>
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <select id="stockJourSelect" style="flex:1;">
-                        <option value="">-- Jour --</option>
-                    </select>
+                    <select id="stockJourSelect" style="flex:1;"><option value="">Jour...</option></select>
                     <input type="number" id="stockValeur" placeholder="Qté" style="width:70px;">
                     <button class="btn btn-gold" onclick="validerStock()">Valider</button>
                 </div>
@@ -110,9 +102,7 @@
         <div class="box">
             <h3>4. Affichage</h3>
             <div class="form-row">
-                <select id="filterCategory" onchange="relancerRender()">
-                    <option value="all">📁 Toutes les catégories</option>
-                </select>
+                <select id="filterCategory" onchange="relancerRender()"></select>
                 <select id="viewMode" onchange="relancerRender()">
                     <option value="semaine">📅 Semaine complète</option>
                     <option value="Lundi">Lundi</option><option value="Mardi">Mardi</option>
@@ -160,6 +150,7 @@
   });
 
   window.relancerRender = () => render(globalData);
+  window.toggleFiltre = () => { filtreActif = !filtreActif; document.getElementById('btnFiltre').classList.toggle('btn-orange', filtreActif); render(globalData); };
 
   function render(data) {
     const containers = data.categories || {};
@@ -208,6 +199,21 @@
         const sortedPKeys = Object.keys(produits).sort((a,b) => (produits[a].ordre || 0) - (produits[b].ordre || 0));
 
         sortedPKeys.forEach(pID => {
+            if (filtreActif) {
+                let aProduireSurLaVue = false;
+                jours.forEach(j => {
+                    if (viewMode === "semaine" || viewMode === j) {
+                        const v = (production[pID] && production[pID][j]) ? production[pID][j] : {};
+                        const hasS = v.hasOwnProperty('stock');
+                        const obj = parseInt(v.obj) || 0;
+                        const stk = hasS ? parseInt(v.stock) : null;
+                        const rst = hasS ? Math.max(0, obj - stk) : obj;
+                        if (rst > 0) aProduireSurLaVue = true;
+                    }
+                });
+                if (!aProduireSurLaVue) return;
+            }
+
             const tr = document.createElement('tr');
             tr.dataset.id = pID;
             let htmlProd = `<td class="prod-name"><span class="handle-prod">⋮⋮</span> ${produits[pID].nom}</td>`;
@@ -256,7 +262,7 @@
   };
 
   window.resetStocksUniquement = async () => {
-      if(confirm("Effacer les inventaires de Mitry ?")) {
+      if(confirm("Vider les stocks de Mitry ?")) {
           const s = await get(ref(db, 'production'));
           if(s.exists()){
               let d = s.val();
@@ -266,10 +272,11 @@
       }
   };
 
-  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); };
-  window.ajouterProduit = () => { const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); };
+  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
+  window.ajouterProduit = () => { const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; };
   window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), v);
   window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
+  
   window.updateStockProdList = () => {
       const cID = document.getElementById('stockCatSelect').value;
       const ps = document.getElementById('stockProdSelect');
@@ -289,24 +296,21 @@
       const prod = globalData.production || {};
       const dDebut = document.getElementById('dateDebut').value || "SansDate";
       const dFin = document.getElementById('dateFin').value || "SansDate";
-
       Object.keys(cats).forEach(cID => {
           const row1 = [""]; jours.forEach(j => row1.push(j, "", ""));
           const row2 = ["Produit"]; jours.forEach(() => row2.push("Obj", "Stk", "Rst"));
-          const data = [row1, row2];
+          const dr = [row1, row2];
           const pList = cats[cID].produits || {};
-          const sortedPKeys = Object.keys(pList).sort((a,b) => (pList[a].ordre||0) - (pList[b].ordre||0));
-          
-          sortedPKeys.forEach(pID => {
-              const row = [pList[pID].nom];
+          Object.keys(pList).sort((a,b)=>(pList[a].ordre||0)-(pList[b].ordre||0)).forEach(pID => {
+              const r = [pList[pID].nom];
               jours.forEach(j => {
                   const v = (prod[pID] && prod[pID][j]) ? prod[pID][j] : {};
                   const hasS = v.hasOwnProperty('stock');
-                  row.push(v.obj||0, hasS?v.stock:"-", hasS?Math.max(0,(v.obj||0)-v.stock):"-");
+                  r.push(v.obj||0, hasS?v.stock:"-", hasS?Math.max(0,(v.obj||0)-v.stock):"-");
               });
-              data.push(row);
+              dr.push(r);
           });
-          const ws = XLSX.utils.aoa_to_sheet(data);
+          const ws = XLSX.utils.aoa_to_sheet(dr);
           ws['!merges'] = [];
           for(let i=0; i<7; i++) ws['!merges'].push({ s:{r:0, c:1+(i*3)}, e:{r:0, c:3+(i*3)} });
           XLSX.utils.book_append_sheet(wb, ws, cats[cID].nom.substring(0,30));
