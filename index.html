@@ -101,7 +101,9 @@
                     <select id="stockProdSelect" style="flex:2;"></select>
                 </div>
                 <div style="display:flex; gap:5px;">
-                    <select id="stockJourSelect" style="flex:1;"></select>
+                    <select id="stockJourSelect" style="flex:1;">
+                        <option value="">-- Jour --</option>
+                    </select>
                     <input type="number" id="stockValeur" value="0" style="width:70px;">
                     <button class="btn btn-gold" onclick="validerStock()">Valider</button>
                 </div>
@@ -131,7 +133,6 @@
     </div>
 
     <div id="listeCategories"></div>
-    
     <div style="margin-top: 50px; padding: 20px; text-align: center;">
         <button class="btn btn-danger" onclick="resetTotal()">⚠️ RÉINITIALISATION COMPLÈTE MITRY</button>
     </div>
@@ -180,11 +181,8 @@
     const catToFilter = filterCatDropdown.value;
     
     parent.innerHTML = ""; 
-    // On garde les sélecteurs de gestion
     selectCat.innerHTML = '<option value="">Choix catégorie...</option>';
     stockCatSelect.innerHTML = '<option value="">-- Catégorie --</option>';
-    
-    // On met à jour le filtre d'affichage sans tout effacer
     const currentFilter = filterCatDropdown.value;
     filterCatDropdown.innerHTML = '<option value="all">📁 Toutes les catégories</option>';
 
@@ -196,7 +194,6 @@
         stockCatSelect.add(new Option(cat.nom, catID));
         filterCatDropdown.add(new Option(cat.nom, catID));
 
-        // Filtrage d'affichage par catégorie
         if(catToFilter !== "all" && catToFilter !== catID) return;
 
         const section = document.createElement('div');
@@ -261,15 +258,12 @@
         }});
     });
     
-    // On remet la valeur du filtre après le refresh du dropdown
     filterCatDropdown.value = currentFilter;
-
     new Sortable(parent, { handle: '.cat-title', animation: 150, onEnd: function() {
         parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `categories/${block.dataset.id}`), { ordre: i }));
     }});
   }
 
-  // Fonctions de gestion identiques
   window.quickSearchProd = () => {
       const search = document.getElementById('quickSearch').value.toLowerCase();
       if (search.length < 2) return;
@@ -300,10 +294,16 @@
     const pVal = document.getElementById('stockProdSelect').value;
     const jVal = document.getElementById('stockJourSelect').value;
     const sVal = document.getElementById('stockValeur').value;
-    if(!pVal) return alert("Produit ?");
+    
+    // VÉRIFICATION DU JOUR
+    if(!jVal) return alert("⚠️ Attention : Tu n'as pas sélectionné de JOUR !");
+    if(!pVal) return alert("⚠️ Choisis un produit");
+    
     const [cID, pID] = pVal.split('/');
     set(ref(db, `production/${pID}/${jVal}/stock`), sVal).then(() => {
         document.getElementById('stockValeur').value = 0;
+        // On réinitialise le jour après validation pour la prochaine saisie
+        document.getElementById('stockJourSelect').value = "";
     });
   };
 
