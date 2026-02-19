@@ -20,9 +20,10 @@
             background: #262626; padding: 40px; border-radius: 15px; 
             border: 1px solid #D4AF37; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .login-box img { width: 120px; margin-bottom: 20px; }
+        .login-box img { width: 120px; margin-bottom: 10px; }
+        .login-box h1 { color: #D4AF37; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 4px; font-size: 1.8em; }
         .login-box input { 
-            display: block; width: 200px; margin: 20px auto; padding: 15px;
+            display: block; width: 220px; margin: 20px auto; padding: 15px;
             font-size: 1.2em; text-align: center; border-radius: 8px; border: 1px solid #555;
             background: #333; color: white;
         }
@@ -82,8 +83,9 @@
 
 <div id="login-screen">
     <div class="login-box">
-        <img src="logo.png" alt="Logo">
-        <h2 style="font-size: 1.2em;">Accès Sécurisé</h2>
+        <img src="logo.png" alt="Logo Maison Jebrane">
+        <h1>MITRY-MORY</h1>
+        <h2 style="font-size: 1em; color: #aaa; letter-spacing: 1px;">Accès Sécurisé</h2>
         <input type="password" id="passInput" placeholder="Code d'accès..." autofocus>
         <button class="btn btn-gold" onclick="checkLogin()" style="width: 100%;">Entrer</button>
         <p id="error-msg" style="color: #ff4d4d; margin-top: 15px; display: none;">Code incorrect</p>
@@ -176,7 +178,7 @@
   // --- GESTION LOGIN ---
   window.checkLogin = () => {
       const pass = document.getElementById('passInput').value;
-      const mdpAttendu = "1234"; // MODIFIEZ VOTRE CODE ICI
+      const mdpAttendu = "1234"; // MODIFIABLE ICI (LIGNE 142)
       if(pass === mdpAttendu) {
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('main-content').style.display = 'block';
