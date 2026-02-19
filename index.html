@@ -42,9 +42,8 @@
         .sub-cell { background: #333; border-radius: 4px; display: flex; flex-direction: column; padding: 4px; transition: 0.3s; }
         .label-sub { font-size: 0.55em; color: #aaa; margin-bottom: 2px; }
         
-        /* ALERTES COULEURS */
-        .stock-vide { background-color: #d35400 !important; color: white !important; } /* Orange */
-        .reste-positif { background-color: #c0392b !important; color: white !important; } /* Rouge */
+        .stock-vide { background-color: #d35400 !important; color: white !important; }
+        .reste-positif { background-color: #c0392b !important; color: white !important; }
         
         .val-obj { background: transparent; color: #fff; border: none; width: 100%; text-align: center; font-weight: bold; font-size: 1.1em; }
         .val-stock { font-weight: bold; font-size: 1.1em; }
@@ -165,6 +164,10 @@
   onValue(ref(db, '/'), (snapshot) => {
     globalData = snapshot.val() || {};
     document.getElementById('status').innerText = "● EN LIGNE";
+    if(globalData.config && globalData.config.dates) {
+        document.getElementById('dateDebut').value = globalData.config.dates.debut || "";
+        document.getElementById('dateFin').value = globalData.config.dates.fin || "";
+    }
     render(globalData);
   });
 
@@ -294,15 +297,11 @@
     const pVal = document.getElementById('stockProdSelect').value;
     const jVal = document.getElementById('stockJourSelect').value;
     const sVal = document.getElementById('stockValeur').value;
-    
-    // VÉRIFICATION DU JOUR
     if(!jVal) return alert("⚠️ Attention : Tu n'as pas sélectionné de JOUR !");
     if(!pVal) return alert("⚠️ Choisis un produit");
-    
     const [cID, pID] = pVal.split('/');
     set(ref(db, `production/${pID}/${jVal}/stock`), sVal).then(() => {
         document.getElementById('stockValeur').value = 0;
-        // On réinitialise le jour après validation pour la prochaine saisie
         document.getElementById('stockJourSelect').value = "";
     });
   };
@@ -339,20 +338,39 @@
     const wb = XLSX.utils.book_new();
     const cats = globalData.categories || {};
     const prod = globalData.production || {};
+    const dDebut = document.getElementById('dateDebut').value || "SansDate";
+    const dFin = document.getElementById('dateFin').value || "SansDate";
+
     Object.keys(cats).forEach(cID => {
-        const rows = [["Produit", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]];
+        const row1 = [""]; 
+        jours.forEach(j => { row1.push(j, "", ""); });
+        const row2 = ["Produit"];
+        jours.forEach(() => { row2.push("Obj", "Stk", "Rst"); });
+
+        const rowsData = [row1, row2];
         const pList = cats[cID].produits || {};
-        Object.keys(pList).forEach(pID => {
-            const r = [pList[pID].nom];
+        const sortedPKeys = Object.keys(pList).sort((a,b) => (pList[a].ordre||0) - (pList[b].ordre||0));
+
+        sortedPKeys.forEach(pID => {
+            const row = [pList[pID].nom];
             jours.forEach(j => {
-                const v = (prod[pID] && prod[pID][j]) ? prod[pID][j] : {obj:0, stock:0};
-                r.push(`${v.obj||0}/${v.stock||0}/${Math.max(0,(v.obj||0)-(v.stock||0))}`);
+                const vals = (prod[pID] && prod[pID][j]) ? prod[pID][j] : {obj:0, stock:0};
+                const o = parseInt(vals.obj) || 0;
+                const s = parseInt(vals.stock) || 0;
+                row.push(o, s, Math.max(0, o - s));
             });
-            rows.push(r);
+            rowsData.push(row);
         });
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), cats[cID].nom.substring(0,30));
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        ws['!merges'] = [];
+        for(let i=0; i<7; i++) {
+            const startCol = 1 + (i*3);
+            ws['!merges'].push({ s: { r: 0, c: startCol }, e: { r: 0, c: startCol + 2 } });
+        }
+        XLSX.utils.book_append_sheet(wb, ws, cats[cID].nom.substring(0,30));
     });
-    XLSX.writeFile(wb, `Rapport_Mitry.xlsx`);
+    XLSX.writeFile(wb, `Rapport_Mitry_${dDebut}_au_${dFin}.xlsx`);
   };
 </script>
 </body>
