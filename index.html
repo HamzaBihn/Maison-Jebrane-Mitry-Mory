@@ -137,19 +137,20 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // CONFIGURATION SPECIFIQUE MITRY-MORY
   const firebaseConfig = {
-    apiKey: "AIzaSyDE_UatO7V9XkR9N8hY1zO0S-Mitry",
-    authDomain: "maison-jebrane-mitry.firebaseapp.com",
-    databaseURL: "https://maison-jebrane-mitry-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "maison-jebrane-mitry",
-    storageBucket: "maison-jebrane-mitry.appspot.com",
-    messagingSenderId: "365847120954",
-    appId: "1:365847120954:web:mitry"
+    apiKey: "AIzaSyAbrOwjPc1eOpMF8I8A-LLhiPO8toiu3oQ",
+    authDomain: "maison-jebrane.firebaseapp.com",
+    databaseURL: "https://maison-jebrane-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "maison-jebrane",
+    storageBucket: "maison-jebrane.firebasestorage.app",
+    messagingSenderId: "541926034379",
+    appId: "1:541926034379:web:f22192e8e40e343a9f044e"
   };
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const DB_PATH = "mitry"; // Branche Mitry
+  
   const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   let globalData = {};
   let filtreActif = false;
@@ -161,7 +162,7 @@
     }
   };
 
-  onValue(ref(db, '/'), (snapshot) => {
+  onValue(ref(db, DB_PATH), (snapshot) => {
     globalData = snapshot.val() || {};
     document.getElementById('status').innerText = "● EN LIGNE (MITRY)";
     if(globalData.config?.dates) {
@@ -172,7 +173,7 @@
   });
 
   window.relancerRender = () => render(globalData);
-  window.toggleFait = (pID, jour, actuel) => set(ref(db, `production/${pID}/${jour}/fait`), !actuel);
+  window.toggleFait = (pID, jour, actuel) => set(ref(db, `${DB_PATH}/production/${pID}/${jour}/fait`), !actuel);
 
   window.toggleFiltre = () => { 
     filtreActif = !filtreActif; 
@@ -197,7 +198,9 @@
     stockCatSelect.innerHTML = '<option value="">-- Catégorie --</option>';
     filterCatDropdown.innerHTML = '<option value="all">📁 Toutes les catégories</option>';
 
-    Object.keys(containers).sort((a,b) => (containers[a].ordre || 0) - (containers[b].ordre || 0)).forEach(catID => {
+    const sortedCatKeys = Object.keys(containers).sort((a,b) => (containers[a].ordre || 0) - (containers[b].ordre || 0));
+
+    sortedCatKeys.forEach(catID => {
         const cat = containers[catID];
         selectCat.add(new Option(cat.nom, catID));
         stockCatSelect.add(new Option(cat.nom, catID));
@@ -236,13 +239,14 @@
                 const v = production[pID]?.[j] || {};
                 const hasS = v.hasOwnProperty('stock');
                 const rst = hasS ? Math.max(0, (parseInt(v.obj)||0) - (parseInt(v.stock)||0)) : (parseInt(v.obj)||0);
-                const resteClass = (hasS && rst > 0) ? (v.fait ? 'produit-fait' : 'reste-positif') : '';
+                const isFait = v.fait === true;
+                const resteClass = (hasS && rst > 0) ? (isFait ? 'produit-fait' : 'reste-positif') : '';
 
                 htmlProd += `<td class="${isHidden}">
                     <div class="cell-grid">
                         <div class="sub-cell"><span class="label-sub">Obj</span><input type="number" class="val-obj" value="${v.obj||0}" onchange="updateVal('${pID}','${j}','obj',this.value)"></div>
                         <div class="sub-cell ${hasS && v.stock==0 && v.obj>0 ? 'stock-vide' : ''}"><span class="label-sub">Stk</span><span class="val-stock">${hasS ? v.stock : '-'}</span></div>
-                        <div class="sub-cell ${resteClass}" ondblclick="toggleFait('${pID}','${j}', ${v.fait||false})">
+                        <div class="sub-cell ${resteClass}" ondblclick="toggleFait('${pID}','${j}', ${isFait})">
                             <span class="label-sub">Rst</span><span class="val-prod">${hasS ? rst : '-'}</span>
                         </div>
                     </div>
@@ -253,12 +257,12 @@
         parent.appendChild(section);
 
         new Sortable(tbody, { handle: '.handle-prod', animation: 150, onEnd: () => {
-            tbody.querySelectorAll('tr').forEach((row, i) => update(ref(db, `categories/${catID}/produits/${row.dataset.id}`), { ordre: i }));
+            tbody.querySelectorAll('tr').forEach((row, i) => update(ref(db, `${DB_PATH}/categories/${catID}/produits/${row.dataset.id}`), { ordre: i }));
         }});
     });
 
     new Sortable(parent, { handle: '.cat-title', animation: 150, onEnd: () => {
-        parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `categories/${block.dataset.id}`), { ordre: i }));
+        parent.querySelectorAll('.categorie-container').forEach((block, i) => update(ref(db, `${DB_PATH}/categories/${block.dataset.id}`), { ordre: i }));
     }});
     filterCatDropdown.value = currentFilter;
   }
@@ -272,43 +276,44 @@
     });
   };
 
-  window.supprimerCat = (id) => { if(confirm("Supprimer la catégorie ?")) remove(ref(db, `categories/${id}`)); };
-  window.supprimerProd = (cid, pid) => { if(confirm("Supprimer le produit ?")) remove(ref(db, `categories/${cid}/produits/${pid}`)); };
+  window.supprimerCat = (id) => { if(confirm("Supprimer la catégorie ?")) remove(ref(db, `${DB_PATH}/categories/${id}`)); };
+  window.supprimerProd = (cid, pid) => { if(confirm("Supprimer le produit ?")) remove(ref(db, `${DB_PATH}/categories/${cid}/produits/${pid}`)); };
   
   window.validerStock = () => {
     const pVal = document.getElementById('stockProdSelect').value;
     const jVal = document.getElementById('stockJourSelect').value;
     const sVal = document.getElementById('stockValeur').value;
     if(!jVal || !pVal || sVal==="") return alert("Saisie incomplète");
-    set(ref(db, `production/${pVal.split('/')[1]}/${jVal}/stock`), parseInt(sVal)).then(() => document.getElementById('stockValeur').value = "");
+    set(ref(db, `${DB_PATH}/production/${pVal.split('/')[1]}/${jVal}/stock`), parseInt(sVal)).then(() => document.getElementById('stockValeur').value = "");
   };
 
   window.resetStocksUniquement = async () => {
-      if(confirm("Vider les stocks et les validations vertes uniquement ?")) {
-          const s = await get(ref(db, 'production'));
+      if(confirm("Vider les stocks de MITRY ?")) {
+          const s = await get(ref(db, `${DB_PATH}/production`));
           if(s.exists()){
               let d = s.val();
               Object.keys(d).forEach(p => Object.keys(d[p]).forEach(j => { delete d[p][j].stock; delete d[p][j].fait; }));
-              set(ref(db, 'production'), d);
+              set(ref(db, `${DB_PATH}/production`), d);
           }
       }
   };
 
   window.resetBoutiqueTotale = async () => {
-      if(confirm("⚠️ ATTENTION : Vous allez supprimer TOUTES les données de MITRY !") && confirm("Confirmer l'effacement définitif ?")) {
-          await remove(ref(db, '/'));
+      if(confirm("⚠️ SUPPRIMER TOUT MITRY ?") && confirm("CERTAIN ?")) {
+          await remove(ref(db, DB_PATH));
           location.reload();
       }
   };
 
-  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, 'categories'), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
-  window.ajouterProduit = () => { const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; if(n && c) push(ref(db, `categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; };
-  window.updateVal = (p, j, t, v) => set(ref(db, `production/${p}/${j}/${t}`), parseInt(v));
-  window.sauverDates = () => set(ref(db, 'config/dates'), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
+  window.ajouterCategorie = () => { const n = document.getElementById('nomCat').value; if(n) push(ref(db, `${DB_PATH}/categories`), { nom: n, ordre: 99 }); document.getElementById('nomCat').value=""; };
+  window.ajouterProduit = () => { const n = document.getElementById('nomProd').value; const c = document.getElementById('selectCat').value; if(n && c) push(ref(db, `${DB_PATH}/categories/${c}/produits`), { nom: n, ordre: 99 }); document.getElementById('nomProd').value=""; };
+  window.updateVal = (p, j, t, v) => set(ref(db, `${DB_PATH}/production/${p}/${j}/${t}`), parseInt(v));
+  window.sauverDates = () => set(ref(db, `${DB_PATH}/config/dates`), { debut: document.getElementById('dateDebut').value, fin: document.getElementById('dateFin').value });
   
   window.updateStockProdList = () => {
       const cID = document.getElementById('stockCatSelect').value;
-      const ps = document.getElementById('stockProdSelect'); ps.innerHTML = '<option value="">-- Produit --</option>';
+      const ps = document.getElementById('stockProdSelect');
+      ps.innerHTML = '<option value="">-- Produit --</option>';
       if(cID && globalData.categories[cID]) {
           const prods = globalData.categories[cID].produits || {};
           Object.keys(prods).sort((a,b)=>(prods[a].ordre||0)-(prods[b].ordre||0)).forEach(pID => ps.add(new Option(prods[pID].nom, `${cID}/${pID}`)));
@@ -325,14 +330,19 @@
       const dDebut = document.getElementById('dateDebut').value || "Inconnue";
       const dFin = document.getElementById('dateFin').value || "Inconnue";
       Object.keys(cats).sort((a,b)=>(cats[a].ordre||0)-(cats[b].ordre||0)).forEach(cID => {
-          const dr = [[""], ["Produit"]]; jours.forEach(j => { dr[0].push(j, "", ""); dr[1].push("Obj", "Stk", "Rst"); });
+          const dr = [[""], ["Produit"]];
+          jours.forEach(j => { dr[0].push(j, "", ""); dr[1].push("Obj", "Stk", "Rst"); });
           const pList = cats[cID].produits || {};
           Object.keys(pList).sort((a,b)=>(pList[a].ordre||0)-(pList[b].ordre||0)).forEach(pID => {
               const r = [pList[pID].nom];
-              jours.forEach(j => { const v = prod[pID]?.[j] || {}; r.push(v.obj||0, v.stock||"-", (v.obj||0)-(v.stock||0)); });
+              jours.forEach(j => {
+                  const v = prod[pID]?.[j] || {};
+                  r.push(v.obj||0, v.stock||"-", (v.obj||0)-(v.stock||0));
+              });
               dr.push(r);
           });
-          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dr), cats[cID].nom.substring(0,30));
+          const ws = XLSX.utils.aoa_to_sheet(dr);
+          XLSX.utils.book_append_sheet(wb, ws, cats[cID].nom.substring(0,30));
       });
       XLSX.writeFile(wb, `Rapport_Mitry_${dDebut}_au_${dFin}.xlsx`);
   };
